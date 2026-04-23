@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2026年全国相关展会信息统计</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+        }
+        .page-container {
+            width: 100% !important;
+            max-width: 100% !important;
+            padding: 20px 30px;
+        }
+        table {
+            table-layout: fixed;
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th {
+            position: relative;
+            user-select: none;
+        }
+        .resizer {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 6px;
+            height: 100%;
+            background: rgba(59, 130, 246, 0.2);
+            cursor: col-resize;
+            user-select: none;
+        }
+        .resizer:hover {
+            background: rgba(59, 130, 246, 0.4);
+        }
+        td, th {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .break-keep {
+            white-space: normal !important;
+            word-break: break-word;
+        }
+        .break-all {
+            word-break: break-all;
+        }
+        .filter-tag {
+            background: #e5f0ff;
+            color: #1d4ed8;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            margin-right: 6px;
+            margin-bottom: 6px;
+            display: inline-flex;
+            align-items: center;
+        }
+        .filter-tag .close {
+            margin-left: 6px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .web-link {
+            color: #2563eb;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+        .web-link:hover {
+            color: #1d4ed8;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-sm">
+<div class="page-container">
+    <h1 class="text-3xl font-bold text-center mb-6 text-blue-700">2026年全国相关展会信息统计</h1>
+
+    <div class="flex flex-wrap gap-3 mb-6 justify-center">
+        <button id="addBtn" class="bg-blue-600 text-white px-5 py-2.5 rounded">➕ 添加展会</button>
+        <label class="bg-purple-600 text-white px-5 py-2.5 rounded cursor-pointer">
+            📊 Excel 导入
+            <input type="file" id="excelFile" accept=".xlsx,.xls" class="hidden">
+        </label>
+        <button id="exportBtn" class="bg-green-600 text-white px-5 py-2.5 rounded">📥 导出数据</button>
+        <button id="clearBtn" class="bg-red-500 text-white px-5 py-2.5 rounded">🗑 清空数据</button>
+    </div>
+
+    <div class="bg-white p-6 rounded-lg shadow mb-6">
+        <div class="grid md:grid-cols-5 gap-4 mb-4">
+            <input type="text" id="search" placeholder="搜索名称/城市/地点" class="border p-3 rounded">
+            <select id="month" class="border p-3 rounded">
+                <option value="">全部月份</option>
+            </select>
+            <select id="city" class="border p-3 rounded">
+                <option value="">全部城市</option>
+            </select>
+            <select id="regionType" class="border p-3 rounded">
+                <option value="">全部地区</option>
+                <option value="domestic">国内</option>
+                <option value="overseas">海外</option>
+            </select>
+        </div>
+        <div class="border-t pt-4 mt-4">
+            <div class="text-gray-500 text-sm mb-2">当前筛选条件：</div>
+            <div id="filterTags" class="flex flex-wrap"></div>
+        </div>
+    </div>
+
+    <div class="bg-white p-6 rounded-lg shadow overflow-x-auto">
+        <table id="expoTable">
+            <colgroup>
+                <col width="70">
+                <col width="100">
+                <col width="260">
+                <col width="150">
+                <col width="200">
+                <col width="100">
+                <col width="70">
+                <col width="220">
+                <col width="220">
+                <col width="140">
+                <col width="120">
+                <col width="120">
+            </colgroup>
+            <thead>
+                <tr class="bg-blue-50 text-left">
+                    <th class="p-3 border">月份</th>
+                    <th class="p-3 border">城市</th>
+                    <th class="p-3 border">展会名称</th>
+                    <th class="p-3 border">举办时间</th>
+                    <th class="p-3 border">举办地点</th>
+                    <th class="p-3 border">规模(㎡)</th>
+                    <th class="p-3 border">届数</th>
+                    <th class="p-3 border">主办单位</th>
+                    <th class="p-3 border">展会官网</th>
+                    <th class="p-3 border">备注</th>
+                    <th class="p-3 border">认领</th>
+                    <th class="p-3 border">操作</th>
+                </tr>
+            </thead>
+            <tbody id="list"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="modal" class="fixed inset-0 bg-black/40 hidden justify-center items-center z-50">
+    <div class="bg-white w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 rounded-lg">
+        <h2 class="text-xl font-bold mb-4" id="modalTitle">添加展会</h2>
+        <input type="hidden" id="editId">
+        <div class="grid md:grid-cols-2 gap-4">
+            <input id="m_month" placeholder="月份（例：3月）" class="border p-3 rounded">
+            <input id="m_city" placeholder="城市" class="border p-3 rounded">
+            <input id="m_name" placeholder="展会名称" class="border p-3 rounded col-span-2">
+            <input id="m_time" placeholder="举办时间" class="border p-3 rounded">
+            <input id="m_addr" placeholder="举办地点" class="border p-3 rounded">
+            <input id="m_area" placeholder="展会规模(㎡)" class="border p-3 rounded">
+            <input id="m_round" placeholder="届数" class="border p-3 rounded">
+            <input id="m_host" placeholder="主办单位" class="border p-3 rounded col-span-2">
+            <input id="m_web" placeholder="展会官网" class="border p-3 rounded col-span-2">
+            <input id="m_note" placeholder="备注" class="border p-3 rounded col-span-2">
+            <input id="m_owner" placeholder="认领人" class="border p-3 rounded col-span-2">
+        </div>
+        <div class="mt-6 flex gap-3 justify-end">
+            <button id="cancelModal" class="bg-gray-300 px-5 py-2.5 rounded">取消</button>
+            <button id="saveModal" class="bg-blue-600 text-white px-5 py-2.5 rounded">保存</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let data = JSON.parse(localStorage.getItem('expo_data_full')) || [];
+
+// 全国省份/自治区/直辖市/特别行政区列表
+const domesticProvinces = new Set([
+    "北京市", "天津市", "上海市", "重庆市",
+    "河北省", "山西省", "辽宁省", "吉林省", "黑龙江省",
+    "江苏省", "浙江省", "安徽省", "福建省", "江西省", "山东省",
+    "河南省", "湖北省", "湖南省", "广东省", "海南省", "四川省",
+    "贵州省", "云南省", "陕西省", "甘肃省", "青海省", "台湾省",
+    "内蒙古自治区", "广西壮族自治区", "西藏自治区", "宁夏回族自治区", "新疆维吾尔自治区",
+    "香港特别行政区", "澳门特别行政区"
+]);
+
+// 国内城市列表
+const domesticCities = new Set([
+    // 直辖市
+    "北京市", "天津市", "上海市", "重庆市",
+    // 河北省
+    "石家庄市", "唐山市", "秦皇岛市", "邯郸市", "邢台市", "保定市", "张家口市", "承德市", "沧州市", "廊坊市", "衡水市", "辛集市", "晋州市", "新乐市", "遵化市", "迁安市", "滦州市", "武安市", "南宫市", "沙河市", "定州市", "安国市", "高碑店市", "涿州市", "泊头市", "任丘市", "黄骅市", "河间市", "霸州市", "三河市", "深州市",
+    // 山西省
+    "太原市", "大同市", "阳泉市", "长治市", "晋城市", "朔州市", "晋中市", "运城市", "忻州市", "临汾市", "吕梁市", "古交市", "高平市", "永济市", "河津市", "原平市", "侯马市", "霍州市", "孝义市", "汾阳市", "介休市",
+    // 辽宁省
+    "沈阳市", "大连市", "鞍山市", "抚顺市", "本溪市", "丹东市", "锦州市", "营口市", "阜新市", "辽阳市", "盘锦市", "铁岭市", "朝阳市", "葫芦岛市", "新民市", "瓦房店市", "庄河市", "海城市", "东港市", "凤城市", "凌海市", "北镇市", "大石桥市", "盖州市", "灯塔市", "调兵山市", "开原市", "北票市", "凌源市", "兴城市",
+    // 吉林省
+    "长春市", "吉林市", "四平市", "辽源市", "通化市", "白山市", "松原市", "白城市", "延边朝鲜族自治州", "榆树市", "德惠市", "公主岭市", "双辽市", "梅河口市", "集安市", "临江市", "洮南市", "大安市", "延吉市", "敦化市", "珲春市", "龙井市", "和龙市",
+    // 黑龙江省
+    "哈尔滨市", "齐齐哈尔市", "鸡西市", "鹤岗市", "双鸭山市", "大庆市", "伊春市", "佳木斯市", "七台河市", "牡丹江市", "黑河市", "绥化市", "大兴安岭地区", "尚志市", "五常市", "讷河市", "虎林市", "密山市", "铁力市", "同江市", "富锦市", "抚远市", "海林市", "宁安市", "穆棱市", "北安市", "五大连池市", "安达市", "肇东市", "海伦市",
+    // 江苏省
+    "南京市", "无锡市", "徐州市", "常州市", "苏州市", "南通市", "连云港市", "淮安市", "盐城市", "扬州市", "镇江市", "泰州市", "宿迁市", "江阴市", "宜兴市", "邳州市", "新沂市", "溧阳市", "张家港市", "昆山市", "常熟市", "太仓市", "如皋市", "启东市", "东台市", "仪征市", "高邮市", "丹阳市", "扬中市", "句容市", "靖江市", "泰兴市", "兴化市",
+    // 浙江省
+    "杭州市", "宁波市", "温州市", "嘉兴市", "湖州市", "绍兴市", "金华市", "衢州市", "舟山市", "台州市", "丽水市", "建德市", "余姚市", "慈溪市", "瑞安市", "乐清市", "海宁市", "平湖市", "桐乡市", "诸暨市", "嵊州市", "兰溪市", "义乌市", "东阳市", "永康市", "江山市", "临海市", "温岭市", "龙泉市",
+    // 安徽省
+    "合肥市", "芜湖市", "蚌埠市", "淮南市", "马鞍山市", "淮北市", "铜陵市", "安庆市", "黄山市", "滁州市", "阜阳市", "宿州市", "六安市", "亳州市", "池州市", "宣城市", "巢湖市", "无为市", "桐城市", "潜山市", "天长市", "明光市", "界首市", "宁国市", "广德市",
+    // 福建省
+    "福州市", "厦门市", "莆田市", "三明市", "泉州市", "漳州市", "南平市", "龙岩市", "宁德市", "福清市", "永安市", "石狮市", "晋江市", "南安市", "龙海市", "漳平市", "福安市", "福鼎市",
+    // 江西省
+    "南昌市", "景德镇市", "萍乡市", "九江市", "新余市", "鹰潭市", "赣州市", "吉安市", "宜春市", "抚州市", "上饶市", "乐平市", "瑞昌市", "共青城市", "瑞金市", "龙南市", "丰城市", "樟树市", "高安市", "井冈山市", "德兴市",
+    // 山东省
+    "济南市", "青岛市", "淄博市", "枣庄市", "东营市", "烟台市", "潍坊市", "济宁市", "泰安市", "威海市", "日照市", "临沂市", "德州市", "聊城市", "滨州市", "菏泽市", "胶州市", "平度市", "莱西市", "滕州市", "龙口市", "莱阳市", "莱州市", "招远市", "栖霞市", "海阳市", "青州市", "诸城市", "寿光市", "安丘市", "高密市", "昌邑市", "曲阜市", "邹城市", "新泰市", "肥城市", "荣成市", "乳山市", "乐陵市", "禹城市", "临清市", "邹平市",
+    // 河南省
+    "郑州市", "开封市", "洛阳市", "平顶山市", "安阳市", "鹤壁市", "新乡市", "焦作市", "许昌市", "漯河市", "三门峡市", "南阳市", "商丘市", "信阳市", "周口市", "驻马店市", "济源市", "巩义市", "荥阳市", "新密市", "新郑市", "登封市", "偃师区", "汝州市", "林州市", "卫辉市", "辉县市", "沁阳市", "孟州市", "禹州市", "长葛市", "义马市", "灵宝市", "邓州市", "永城市", "项城市",
+    // 湖北省
+    "武汉市", "黄石市", "十堰市", "宜昌市", "襄阳市", "鄂州市", "荆门市", "孝感市", "荆州市", "黄冈市", "咸宁市", "随州市", "恩施土家族苗族自治州", "仙桃市", "潜江市", "天门市", "神农架林区", "大冶市", "丹江口市", "宜都市", "当阳市", "枝江市", "枣阳市", "宜城市", "钟祥市", "汉川市", "应城市", "安陆市", "石首市", "洪湖市", "松滋市", "麻城市", "武穴市", "赤壁市", "广水市", "利川市",
+    // 湖南省
+    "长沙市", "株洲市", "湘潭市", "衡阳市", "邵阳市", "岳阳市", "常德市", "张家界市", "益阳市", "郴州市", "永州市", "怀化市", "娄底市", "湘西土家族苗族自治州", "浏阳市", "醴陵市", "湘乡市", "韶山市", "耒阳市", "常宁市", "武冈市", "临湘市", "汨罗市", "沅江市", "资兴市", "洪江市", "冷水江市", "涟源市",
+    // 广东省
+    "广州市", "韶关市", "深圳市", "珠海市", "汕头市", "佛山市", "江门市", "湛江市", "茂名市", "肇庆市", "惠州市", "梅州市", "汕尾市", "河源市", "阳江市", "清远市", "东莞市", "中山市", "潮州市", "揭阳市", "云浮市", "乐昌市", "南雄市", "台山市", "开平市", "鹤山市", "廉江市", "雷州市", "吴川市", "高州市", "化州市", "信宜市", "四会市", "兴宁市", "陆丰市", "阳春市", "英德市", "连州市", "普宁市", "罗定市",
+    // 海南省
+    "海口市", "三亚市", "三沙市", "儋州市", "文昌市", "琼海市", "万宁市", "东方市", "五指山市",
+    // 四川省
+    "成都市", "自贡市", "攀枝花市", "泸州市", "德阳市", "绵阳市", "广元市", "遂宁市", "内江市", "乐山市", "南充市", "眉山市", "宜宾市", "广安市", "达州市", "雅安市", "巴中市", "资阳市", "阿坝藏族羌族自治州", "甘孜藏族自治州", "凉山彝族自治州", "都江堰市", "彭州市", "崇州市", "邛崃市", "广汉市", "什邡市", "绵竹市", "江油市", "射洪市", "峨眉山市", "阆中市", "万源市", "简阳市",
+    // 贵州省
+    "贵阳市", "六盘水市", "遵义市", "安顺市", "毕节市", "铜仁市", "黔东南苗族侗族自治州", "黔南布依族苗族自治州", "黔西南布依族苗族自治州", "清镇市", "赤水市", "仁怀市", "盘州市", "兴义市", "兴仁市", "凯里市", "都匀市", "福泉市",
+    // 云南省
+    "昆明市", "曲靖市", "玉溪市", "保山市", "昭通市", "丽江市", "普洱市", "临沧市", "楚雄彝族自治州", "红河哈尼族彝族自治州", "文山壮族苗族自治州", "西双版纳傣族自治州", "大理白族自治州", "德宏傣族景颇族自治州", "怒江傈僳族自治州", "迪庆藏族自治州", "安宁市", "宣威市", "澄江市", "腾冲市", "水富市", "瑞丽市", "芒市", "香格里拉市", "泸水市", "个旧市", "开远市", "蒙自市", "弥勒市", "文山市", "景洪市", "大理市",
+    // 陕西省
+    "西安市", "铜川市", "宝鸡市", "咸阳市", "渭南市", "延安市", "汉中市", "榆林市", "安康市", "商洛市", "兴平市", "韩城市", "华阴市", "神木市", "府谷市", "靖边市",
+    // 甘肃省
+    "兰州市", "嘉峪关市", "金昌市", "白银市", "天水市", "武威市", "张掖市", "平凉市", "酒泉市", "庆阳市", "定西市", "陇南市", "临夏回族自治州", "甘南藏族自治州", "玉门市", "敦煌市", "华亭市",
+    // 青海省
+    "西宁市", "海东市", "海北藏族自治州", "黄南藏族自治州", "海南藏族自治州", "果洛藏族自治州", "玉树藏族自治州", "海西蒙古族藏族自治州", "格尔木市", "德令哈市", "茫崖市",
+    // 台湾省
+    "台北市", "新北市", "桃园市", "台中市", "台南市", "高雄市", "基隆市", "新竹市", "嘉义市",
+    // 内蒙古自治区
+    "呼和浩特市", "包头市", "乌海市", "赤峰市", "通辽市", "鄂尔多斯市", "呼伦贝尔市", "巴彦淖尔市", "乌兰察布市", "兴安盟", "锡林郭勒盟", "阿拉善盟", "霍林郭勒市", "满洲里市", "扎兰屯市", "牙克石市", "根河市", "额尔古纳市", "丰镇市", "锡林浩特市", "二连浩特市", "阿尔山市",
+    // 广西壮族自治区
+    "南宁市", "柳州市", "桂林市", "梧州市", "北海市", "防城港市", "钦州市", "贵港市", "玉林市", "百色市", "贺州市", "河池市", "来宾市", "崇左市", "岑溪市", "东兴市", "桂平市", "北流市", "靖西市", "平果市", "合山市", "凭祥市",
+    // 西藏自治区
+    "拉萨市", "日喀则市", "昌都市", "林芝市", "山南市", "那曲市", "阿里地区",
+    // 宁夏回族自治区
+    "银川市", "石嘴山市", "吴忠市", "固原市", "中卫市", "灵武市", "青铜峡市",
+    // 新疆维吾尔自治区
+    "乌鲁木齐市", "克拉玛依市", "吐鲁番市", "哈密市", "昌吉回族自治州", "博尔塔拉蒙古自治州", "巴音郭楞蒙古自治州", "克孜勒苏柯尔克孜自治州", "伊犁哈萨克自治州", "阿克苏地区", "喀什地区", "和田地区", "塔城地区", "阿勒泰地区", "石河子市", "阿拉尔市", "图木舒克市", "五家渠市", "北屯市", "铁门关市", "双河市", "可克达拉市", "昆玉市", "胡杨河市", "库尔勒市", "阿克苏市", "喀什市", "和田市", "伊宁市", "奎屯市", "塔城市", "乌苏市",
+    // 特别行政区
+    "香港特别行政区", "澳门特别行政区"
+]);
+
+// 判断是否为国内（省份+城市双重模糊匹配）
+function isDomesticCity(cityName) {
+    if (!cityName) return false;
+    const cleanCity = cityName.trim().replace(/\s+/g, "");
+    
+    for (const province of domesticProvinces) {
+        if (province.includes(cleanCity) || cleanCity.includes(province)) return true;
+    }
+    for (const domesticCity of domesticCities) {
+        if (domesticCity.includes(cleanCity) || cleanCity.includes(domesticCity)) return true;
+    }
+    return false;
+}
+
+// 自动补全网址协议
+function fixUrl(url) {
+    if (!url) return '';
+    if (!/^https?:\/\//i.test(url)) {
+        return 'https://' + url;
+    }
+    return url;
+}
+
+function save() {
+    localStorage.setItem('expo_data_full', JSON.stringify(data));
+}
+
+function initResize() {
+    const table = document.getElementById('expoTable');
+    const cols = table.querySelectorAll('col');
+    const ths = table.querySelectorAll('th');
+    ths.forEach((th, i) => {
+        if (i >= cols.length - 1) return;
+        const resizer = document.createElement('div');
+        resizer.className = 'resizer';
+        th.appendChild(resizer);
+        let startX, startWidth;
+        resizer.addEventListener('mousedown', e => {
+            startX = e.pageX;
+            startWidth = cols[i].offsetWidth;
+            table.style.cursor = 'col-resize';
+            document.addEventListener('mousemove', move);
+            document.addEventListener('mouseup', stop);
+            e.preventDefault();
+        });
+        function move(e) {
+            const w = startWidth + (e.pageX - startX);
+            cols[i].style.width = Math.max(50, w) + 'px';
+        }
+        function stop() {
+            table.style.cursor = '';
+            document.removeEventListener('mousemove', move);
+            document.removeEventListener('mouseup', stop);
+        }
+    });
+}
+
+// 获取当前筛选条件下的 有效数据
+function getFilteredData() {
+    const s = document.getElementById('search').value.toLowerCase();
+    const month = document.getElementById('month').value;
+    const city = document.getElementById('city').value;
+    const regionType = document.getElementById('regionType').value;
+
+    return data.filter(item => {
+        if (month && item.month !== month) return false;
+        if (city && item.city !== city) return false;
+        const match = ((item.name || '') + (item.city || '') + (item.addr || '')).toLowerCase();
+        if (s && !match.includes(s)) return false;
+        const isDomestic = isDomesticCity(item.city);
+        if (regionType === 'domestic' && !isDomestic) return false;
+        if (regionType === 'overseas' && isDomestic) return false;
+        return true;
+    });
+}
+
+// 月份正确排序：1月、2月…12月
+function sortMonths(arr) {
+    return arr.sort((a, b) => {
+        const n1 = parseInt(a) || 99;
+        const n2 = parseInt(b) || 99;
+        return n1 - n2;
+    });
+}
+
+// 渲染筛选标签
+function renderFilterTags() {
+    const search = document.getElementById('search').value.trim();
+    const month = document.getElementById('month').value;
+    const city = document.getElementById('city').value;
+    const regionType = document.getElementById('regionType').value;
+    const box = document.getElementById('filterTags');
+    box.innerHTML = '';
+    let has = false;
+
+    if (search) {
+        has = true;
+        const tag = document.createElement('div');
+        tag.className = 'filter-tag';
+        tag.innerHTML = `搜索：${search} <span class="close" data-type="search">×</span>`;
+        box.appendChild(tag);
+    }
+    if (month) {
+        has = true;
+        const tag = document.createElement('div');
+        tag.className = 'filter-tag';
+        tag.innerHTML = `月份：${month} <span class="close" data-type="month">×</span>`;
+        box.appendChild(tag);
+    }
+    if (city) {
+        has = true;
+        const tag = document.createElement('div');
+        tag.className = 'filter-tag';
+        tag.innerHTML = `城市：${city} <span class="close" data-type="city">×</span>`;
+        box.appendChild(tag);
+    }
+    if (regionType) {
+        has = true;
+        const regionText = regionType === 'domestic' ? '国内' : '海外';
+        const tag = document.createElement('div');
+        tag.className = 'filter-tag';
+        tag.innerHTML = `地区：${regionText} <span class="close" data-type="regionType">×</span>`;
+        box.appendChild(tag);
+    }
+    if (!has) box.innerHTML = '<span class="text-gray-400">无筛选</span>';
+
+    document.querySelectorAll('.filter-tag .close').forEach(el => {
+        el.onclick = function () {
+            const t = this.dataset.type;
+            if (t === 'search') document.getElementById('search').value = '';
+            if (t === 'month') document.getElementById('month').value = '';
+            if (t === 'city') document.getElementById('city').value = '';
+            if (t === 'regionType') document.getElementById('regionType').value = '';
+            render();
+        };
+    });
+}
+
+// 联动刷新下拉框
+function renderSelects() {
+    const filtered = getFilteredData();
+    const selMonth = document.getElementById('month').value;
+    const selCity = document.getElementById('city').value;
+    const selRegion = document.getElementById('regionType').value;
+
+    // 月份：正确排序
+    const months = [...new Set(filtered.map(i => i.month).filter(Boolean))];
+    const monthEl = document.getElementById('month');
+    monthEl.innerHTML = '<option value="">全部月份</option>';
+    sortMonths(months).forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = m;
+        if (m === selMonth) opt.selected = true;
+        monthEl.appendChild(opt);
+    });
+
+    // 城市：只显示当前筛选后存在的城市
+    const cities = [...new Set(filtered.map(i => i.city).filter(Boolean))].sort();
+    const cityEl = document.getElementById('city');
+    cityEl.innerHTML = '<option value="">全部城市</option>';
+    cities.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        opt.textContent = c;
+        if (c === selCity) opt.selected = true;
+        cityEl.appendChild(opt);
+    });
+
+    // 地区保持不变
+    document.getElementById('regionType').value = selRegion;
+}
+
+// 主渲染
+function render() {
+    renderFilterTags();
+    renderSelects();
+
+    const list = document.getElementById('list');
+    list.innerHTML = '';
+    const filtered = getFilteredData();
+
+    filtered.forEach((item, idx) => {
+        const webUrl = fixUrl(item.web);
+        const webLinkHtml = item.web 
+            ? `<a href="${webUrl}" target="_blank" class="web-link break-all">${item.web}</a>` 
+            : '';
+
+        const tr = document.createElement('tr');
+        tr.className = 'border-b hover:bg-blue-50';
+        tr.innerHTML = `
+            <td class="p-3 border">${item.month || ''}</td>
+            <td class="p-3 border">${item.city || ''}</td>
+            <td class="p-3 border font-medium break-keep">${item.name || ''}</td>
+            <td class="p-3 border">${item.time || ''}</td>
+            <td class="p-3 border break-keep">${item.addr || ''}</td>
+            <td class="p-3 border">${item.area || ''}</td>
+            <td class="p-3 border">${item.round || ''}</td>
+            <td class="p-3 border break-keep">${item.host || ''}</td>
+            <td class="p-3 border">${webLinkHtml}</td>
+            <td class="p-3 border break-keep">${item.note || ''}</td>
+            <td class="p-3 border font-medium text-blue-700">${item.owner || ''}</td>
+            <td class="p-3 border whitespace-nowrap">
+                <button data-idx="${idx}" class="editBtn text-xs bg-yellow-400 px-2 py-1 rounded mb-1">编辑</button>
+                <button data-idx="${idx}" class="delBtn text-xs bg-red-500 text-white px-2 py-1 rounded">删除</button>
+            </td>
+        `;
+        list.appendChild(tr);
+    });
+
+    document.querySelectorAll('.editBtn').forEach(b => {
+        b.onclick = () => edit(+b.dataset.idx);
+    });
+    document.querySelectorAll('.delBtn').forEach(b => {
+        b.onclick = () => {
+            if (confirm('确定删除？')) {
+                const filtered = getFilteredData();
+                const realIdx = data.indexOf(filtered[+b.dataset.idx]);
+                if (realIdx > -1) data.splice(realIdx, 1);
+                save();
+                render();
+            }
+        };
+    });
+}
+
+// 弹窗操作
+function openModal(title, idx = -1) {
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('editId').value = idx;
+    const item = idx >= 0 ? data[idx] : {};
+    document.getElementById('m_month').value = item.month || '';
+    document.getElementById('m_city').value = item.city || '';
+    document.getElementById('m_name').value = item.name || '';
+    document.getElementById('m_time').value = item.time || '';
+    document.getElementById('m_addr').value = item.addr || '';
+    document.getElementById('m_area').value = item.area || '';
+    document.getElementById('m_round').value = item.round || '';
+    document.getElementById('m_host').value = item.host || '';
+    document.getElementById('m_web').value = item.web || '';
+    document.getElementById('m_note').value = item.note || '';
+    document.getElementById('m_owner').value = item.owner || '';
+    document.getElementById('modal').style.display = 'flex';
+}
+
+function edit(idx) {
+    const filtered = getFilteredData();
+    const realIdx = data.indexOf(filtered[idx]);
+    openModal('编辑展会', realIdx);
+}
+
+document.getElementById('saveModal').onclick = () => {
+    const idx = +document.getElementById('editId').value;
+    const item = {
+        month: document.getElementById('m_month').value.trim(),
+        city: document.getElementById('m_city').value.trim(),
+        name: document.getElementById('m_name').value.trim(),
+        time: document.getElementById('m_time').value.trim(),
+        addr: document.getElementById('m_addr').value.trim(),
+        area: document.getElementById('m_area').value.trim(),
+        round: document.getElementById('m_round').value.trim(),
+        host: document.getElementById('m_host').value.trim(),
+        web: document.getElementById('m_web').value.trim(),
+        note: document.getElementById('m_note').value.trim(),
+        owner: document.getElementById('m_owner').value.trim()
+    };
+    if (!item.month || !item.city || !item.name) {
+        alert('月份、城市、名称不能为空');
+        return;
+    }
+    if (idx >= 0) data[idx] = item; else data.push(item);
+    save();
+    render();
+    document.getElementById('modal').style.display = 'none';
+};
+
+document.getElementById('cancelModal').onclick = () => {
+    document.getElementById('modal').style.display = 'none';
+};
+
+document.getElementById('addBtn').onclick = () => openModal('添加展会');
+document.getElementById('exportBtn').onclick = () => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '展会数据.json';
+    a.click();
+};
+document.getElementById('clearBtn').onclick = () => {
+    if (confirm('确定清空所有数据？不可恢复！')) {
+        data = []; save(); render();
+    }
+};
+document.getElementById('excelFile').onchange = function(e) { importExcel(e); };
+
+function importExcel(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+        try {
+            const wb = XLSX.read(ev.target.result, { type: 'binary' });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const json = XLSX.utils.sheet_to_json(ws);
+            if (!json.length) { alert('Excel无数据'); resetFileInput(); return; }
+            const imported = json.map(row => ({
+                month: row['月份'] || '', city: row['城市'] || '', name: row['展会名称'] || '',
+                time: row['举办时间'] || '', addr: row['举办地点'] || '', area: (row['展会规模'] || '').toString(),
+                round: (row['届数'] || '').toString(), host: row['主办单位'] || '', web: row['展会官网'] || '',
+                note: row['备注'] || '', owner: row['认领'] || row['认领人'] || ''
+            })).filter(i => i.month && i.city && i.name);
+            if (!imported.length) { alert('未识别到有效数据，请检查表头'); resetFileInput(); return; }
+            if (confirm(`成功识别 ${imported.length} 条数据，是否导入？`)) {
+                data = [...data, ...imported]; save(); render(); alert('导入成功！');
+            }
+        } catch (e) { alert('导入失败：' + e.message); } finally { resetFileInput(); }
+    };
+    reader.readAsBinaryString(file);
+}
+function resetFileInput() { document.getElementById('excelFile').value = ''; }
+
+// 筛选事件
+document.getElementById('search').oninput = render;
+document.getElementById('month').onchange = render;
+document.getElementById('city').onchange = render;
+document.getElementById('regionType').onchange = render;
+
+render();
+initResize();
+</script>
+</body>
+</html>
